@@ -34,6 +34,16 @@ typedef enum {
 	U_ALU_OR_IMM,
 	U_ALU_SLL_IMM,
 	U_ALU_SRL_IMM,
+	U_ALU_POPCOUNT,
+	U_ALU_CLZ,
+	U_ALU_CTZ,
+	U_ALU_ANDN,
+	U_ALU_XNOR,
+	U_ALU_PACK,
+	U_ALU_MIN,
+	U_ALU_MINU,
+	U_ALU_SBSET,
+	U_ALU_SBCLR,
 	U_LOAD_WORD,
 	U_LOAD_BYTE,
 	U_STORE_WORD,
@@ -242,6 +252,18 @@ task do_ID();
 	do_ID_srli();
 	do_ID_sw();
 	do_ID_xor();
+	
+	// extra instructions
+	do_ID_pcnt();
+	do_ID_clz();
+	do_ID_ctz();
+	do_ID_andn();
+	do_ID_xnor();
+	do_ID_pack();
+	do_ID_min();
+	do_ID_minu();
+	do_ID_sbset();
+	do_ID_sbclr();
 endtask
 
 task do_ID_add();
@@ -383,6 +405,66 @@ task do_ID_xor();
 	end
 endtask
 
+task do_ID_pcnt();
+	if (opcode == 7'b0010011 && insn_rs2 == 5'b00010 && funct3 == 3'b001 && funct7 == 7'b0110000) begin
+		uops <= { U_READ_RS1, U_ALU_POPCOUNT, U_WRITE_RD, U_NOP };
+	end
+endtask
+
+task do_ID_clz();
+	if (opcode == 7'b0010011 && insn_rs2 == 5'b00000 && funct3 == 3'b001 && funct7 == 7'b0110000) begin
+		uops <= { U_READ_RS1, U_ALU_CLZ, U_WRITE_RD, U_NOP };
+	end
+endtask
+
+task do_ID_ctz();
+	if (opcode == 7'b0010011 && insn_rs2 == 5'b00001 && funct3 == 3'b001 && funct7 == 7'b0110000) begin
+		uops <= { U_READ_RS1, U_ALU_CTZ, U_WRITE_RD, U_NOP };
+	end
+endtask
+
+task do_ID_andn();
+	if (opcode == 7'b0110011 && funct3 == 3'b111 && funct7 == 7'b0100000) begin
+		uops <= { U_READ_RS1_RS2, U_ALU_ANDN, U_WRITE_RD, U_NOP };
+	end
+endtask
+
+task do_ID_xnor();
+	if (opcode == 7'b0110011 && funct3 == 3'b100 && funct7 == 7'b0100000) begin
+		uops <= { U_READ_RS1_RS2, U_ALU_XNOR, U_WRITE_RD, U_NOP };
+	end
+endtask
+
+task do_ID_pack();
+	if (opcode == 7'b0110011 && funct3 == 3'b100 && funct7 == 7'b0000100) begin
+		uops <= { U_READ_RS1_RS2, U_ALU_PACK, U_WRITE_RD, U_NOP };
+	end
+endtask
+
+task do_ID_min();
+	if (opcode == 7'b0110011 && funct3 == 3'b100 && funct7 == 7'b0000101) begin
+		uops <= { U_READ_RS1_RS2, U_ALU_MIN, U_WRITE_RD, U_NOP };
+	end
+endtask
+
+task do_ID_minu();
+	if (opcode == 7'b0110011 && funct3 == 3'b110 && funct7 == 7'b0000101) begin
+		uops <= { U_READ_RS1_RS2, U_ALU_MINU, U_WRITE_RD, U_NOP };
+	end
+endtask
+
+task do_ID_sbset();
+	if (opcode == 7'b0110011 && funct3 == 3'b001 && funct7 == 7'b0010100) begin
+		uops <= { U_READ_RS1_RS2, U_ALU_SBSET, U_WRITE_RD, U_NOP };
+	end
+endtask
+
+task do_ID_sbclr();
+	if (opcode == 7'b0110011 && funct3 == 3'b001 && funct7 == 7'b0100100) begin
+		uops <= { U_READ_RS1_RS2, U_ALU_SBCLR, U_WRITE_RD, U_NOP };
+	end
+endtask
+
 
 task do_EXE();
 	uops <= { uops[1:3], U_NOP };
@@ -403,6 +485,16 @@ task do_EXE();
 		U_ALU_OR_IMM: do_alu_or_imm();
 		U_ALU_SLL_IMM: do_alu_sll_imm();
 		U_ALU_SRL_IMM: do_alu_srl_imm();
+		U_ALU_POPCOUNT: do_alu_popcount();
+		U_ALU_CLZ: do_alu_clz();
+		U_ALU_CTZ: do_alu_ctz();
+		U_ALU_ANDN: do_alu_andn();
+		U_ALU_XNOR: do_alu_xnor();
+		U_ALU_PACK: do_alu_pack();
+		U_ALU_MIN: do_alu_min();
+		U_ALU_MINU: do_alu_minu();
+		U_ALU_SBSET: do_alu_sbset();
+		U_ALU_SBCLR: do_alu_sbclr();
 		U_LOAD_WORD: do_load_word();
 		U_LOAD_BYTE: do_load_byte();
 		U_STORE_WORD: do_store_word();
@@ -483,6 +575,63 @@ endtask
 
 task do_alu_srl_imm();
 	rd_value <= rs1_value >> imm[4:0];
+endtask
+
+function logic [4:0] popcount32(input [31:0] x);
+	logic [4:0] ret = 4'b0;
+	for (int i = 0; i < 32; i++) begin
+		ret += { 4'b0, x[i] };
+	end
+	return ret;
+endfunction
+
+task do_alu_popcount();
+	rd_value <= { 27'b0, popcount32(rs1_value) };
+endtask
+
+function logic [5:0] clz32(input [31:0] x);
+	for (int i = 0; i < 32; i++) begin
+		if (x[31 - i] == 1) begin
+			return i;
+		end
+	end
+	return 6'd32;
+endfunction
+
+task do_alu_clz();
+	rd_value <= { 26'b0, clz32(rs1_value) };
+endtask
+
+task do_alu_ctz();
+	rd_value <= { 26'b0, clz32({<<{rs1_value}}) };
+endtask
+
+task do_alu_andn();
+	rd_value <= rs1_value & ~rs2_value;
+endtask
+
+task do_alu_xnor();
+	rd_value <= rs1_value ^ ~rs2_value;
+endtask
+
+task do_alu_pack();
+	rd_value <= { rs2_value[15:0], rs1_value[15:0] };
+endtask
+
+task do_alu_min();
+	rd_value <= $signed(rs1_value) < $signed(rs2_value) ? rs1_value : rs2_value;
+endtask
+
+task do_alu_minu();
+	rd_value <= rs1_value < rs2_value ? rs1_value : rs2_value;
+endtask
+
+task do_alu_sbset();
+	rd_value <= rs1_value | (32'h1 << rs2_value[4:0]);
+endtask
+
+task do_alu_sbclr();
+	rd_value <= rs1_value & ~(32'h1 << rs2_value[4:0]);
 endtask
 
 // for load/store
