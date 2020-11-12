@@ -117,8 +117,6 @@ always_ff @ (posedge clk or posedge reset) begin
 	end
 end
 
-reg is_first_char;  // for \x0c
-
 task do_RESET();
 	pc_out <= 0;
 	
@@ -128,8 +126,6 @@ task do_RESET();
 	sram_state <= SR_IDLE;
 	cycles_remaining <= 1;
 	uart_cycles <= 1;
-	
-	is_first_char <= 1;
 	
 	uops <= '{4 {U_NOP}};
 	pc <= 32'h80000000;
@@ -681,22 +677,18 @@ task do_read_uart();
 endtask
 
 task do_write_uart();
-	if (is_first_char) begin
-		is_first_char <= 0;
-	end else begin
-		if (uart_cycles == UART_DELAY_CYCLES) begin
-			uart_cycles <= 1;
-			
-			if (base_ram.UART_has_written()) begin
-				base_ram.UART_end_write();
-			end else begin
-				base_ram.UART_request_write(mem_data_to_write[7:0]);
-				uop_not_finished();
-			end
+	if (uart_cycles == UART_DELAY_CYCLES) begin
+		uart_cycles <= 1;
+		
+		if (base_ram.UART_has_written()) begin
+			base_ram.UART_end_write();
 		end else begin
-			uart_cycles <= uart_cycles + 1;
+			base_ram.UART_request_write(mem_data_to_write[7:0]);
 			uop_not_finished();
 		end
+	end else begin
+		uart_cycles <= uart_cycles + 1;
+		uop_not_finished();
 	end
 endtask
 
